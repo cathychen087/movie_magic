@@ -126,5 +126,5 @@ python manage.py runserver
    - Verify all environment variables are set
    - Ensure requirements.txt is up to date
 
-### Contact
-For support or questions, please open an issue in the GitHub repository. 
+### url
+https://web-production-fd59a.up.railway.app
