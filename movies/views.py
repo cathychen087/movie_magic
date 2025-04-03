@@ -9,7 +9,7 @@ from django.contrib.auth import login, logout, authenticate
 from django.contrib.auth.forms import UserCreationForm
 from django.contrib.auth.decorators import login_required
 from django.contrib import messages
-from django.http import JsonResponse
+from django.http import JsonResponse, HttpResponse
 from .models import User, Favorite, Movie, Booking, Review, Challenge
 from .forms import CustomUserCreationForm
 from django.views.decorators.http import require_POST
@@ -418,3 +418,6 @@ def delete_review(request, review_id):
         'success': False,
         'error': 'Invalid request method'
     })
+
+def health_check(request):
+    return HttpResponse("OK", content_type="text/plain")
