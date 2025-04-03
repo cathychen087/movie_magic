@@ -1,0 +1,1 @@
+web: gunicorn movie_magic.wsgi:application --log-file - 

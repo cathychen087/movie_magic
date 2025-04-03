@@ -1,0 +1,113 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block content %}
+<div class="container mt-4">
+    {% csrf_token %}
+    <h1 class="text-center mb-4">Popular Movies</h1>
+    {% if error %}
+        <div class="alert alert-danger">{{ error }}</div>
+    {% else %}
+        <div class="row row-cols-1 row-cols-md-3 g-4">
+            {% for movie in movies %}
+                <div class="col">
+                    <div class="card h-100 movie-card">
+                        {% if movie.poster_url %}
+                            <img src="{{ movie.poster_url }}" class="card-img-top movie-poster" alt="{{ movie.title }}">
+                        {% else %}
+                            <div class="card-img-top movie-poster bg-secondary d-flex align-items-center justify-content-center">
+                                <span class="text-white">No Image Available</span>
+                            </div>
+                        {% endif %}
+                        <div class="card-body">
+                            <h5 class="card-title">{{ movie.title }}</h5>
+                            <p class="card-text">{{ movie.overview|truncatewords:30 }}</p>
+                            <div class="d-flex justify-content-between align-items-center">
+                                <a href="{% url 'movie_detail' movie.id %}" class="btn btn-primary">View Details</a>
+                                {% if user.is_authenticated %}
+                                    <button class="btn btn-outline-danger favorite-btn" data-movie-id="{{ movie.id }}">
+                                        <i class="bi {% if movie.is_favorite %}bi-heart-fill{% else %}bi-heart{% endif %}"></i>
+                                    </button>
+                                {% else %}
+                                    <a href="{% url 'login' %}" class="btn btn-outline-danger">
+                                        <i class="bi bi-heart"></i>
+                                    </a>
+                                {% endif %}
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            {% endfor %}
+        </div>
+    {% endif %}
+</div>
+
+<style>
+    .movie-card {
+        transition: transform 0.3s;
+    }
+    .movie-card:hover {
+        transform: scale(1.05);
+    }
+    .movie-poster {
+        height: 400px;
+        object-fit: cover;
+    }
+    .favorite-btn {
+        padding: 0.375rem 0.75rem;
+        font-size: 1.25rem;
+    }
+    .favorite-btn i {
+        transition: color 0.3s;
+    }
+    .favorite-btn:hover i {
+        color: #dc3545;
+    }
+</style>
+
+{% if user.is_authenticated %}
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    const csrfToken = document.querySelector('[name=csrfmiddlewaretoken]').value;
+    
+    // Favorite button functionality
+    const favoriteButtons = document.querySelectorAll('.favorite-btn');
+    favoriteButtons.forEach(button => {
+        button.addEventListener('click', function() {
+            const movieId = this.dataset.movieId;
+            const icon = this.querySelector('i');
+            
+            fetch(`/movie/${movieId}/favorite/`, {
+                method: 'POST',
+                headers: {
+                    'X-CSRFToken': csrfToken,
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({})
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.success) {
+                    if (data.is_favorite) {
+                        icon.classList.remove('bi-heart');
+                        icon.classList.add('bi-heart-fill');
+                        this.classList.add('active');
+                    } else {
+                        icon.classList.remove('bi-heart-fill');
+                        icon.classList.add('bi-heart');
+                        this.classList.remove('active');
+                    }
+                } else {
+                    alert('Failed to update favorite status: ' + (data.error || 'Unknown error'));
+                }
+            })
+            .catch(error => {
+                console.error('Error:', error);
+                alert('Failed to update favorite status. Please try again.');
+            });
+        });
+    });
+});
+</script>
+{% endif %}
+{% endblock %} 

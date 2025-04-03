@@ -1,0 +1,194 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block content %}
+{% csrf_token %}
+<div class="container mt-4">
+    <div class="row">
+        <!-- User Info -->
+        <div class="col-md-4">
+            <div class="card mb-4">
+                <div class="card-body text-center">
+                    <i class="bi bi-person-circle" style="font-size: 4rem; color: #e50914;"></i>
+                    <h4 class="mt-3">{{ user.username }}</h4>
+                    <p class="text-muted">{{ user.email }}</p>
+                </div>
+            </div>
+        </div>
+
+        <!-- Main Content -->
+        <div class="col-md-8">
+            <!-- Tabs -->
+            <ul class="nav nav-tabs mb-4" id="profileTabs" role="tablist">
+                <li class="nav-item" role="presentation">
+                    <button class="nav-link active" id="bookings-tab" data-bs-toggle="tab" data-bs-target="#bookings" type="button">
+                        <i class="bi bi-ticket-perforated"></i> My Bookings
+                    </button>
+                </li>
+                <li class="nav-item" role="presentation">
+                    <button class="nav-link" id="favorites-tab" data-bs-toggle="tab" data-bs-target="#favorites" type="button">
+                        <i class="bi bi-heart-fill"></i> My Favorites
+                    </button>
+                </li>
+            </ul>
+
+            <!-- Tab Content -->
+            <div class="tab-content" id="profileTabsContent">
+                <!-- Bookings Tab -->
+                <div class="tab-pane fade show active" id="bookings">
+                    {% if bookings %}
+                        {% for booking in bookings %}
+                            {% if booking.payment_status == 'paid' %}
+                            <div class="card mb-3">
+                                <div class="row g-0">
+                                    <div class="col-md-4">
+                                        <img src="https://image.tmdb.org/t/p/w500{{ booking.movie.poster_path }}" 
+                                             class="img-fluid rounded-start" 
+                                             alt="{{ booking.movie.title }}"
+                                             style="height: 300px; object-fit: cover;">
+                                    </div>
+                                    <div class="col-md-8">
+                                        <div class="card-body">
+                                            <h5 class="card-title">{{ booking.movie.title }}</h5>
+                                            <p class="card-text">
+                                                <small class="text-muted">
+                                                    <i class="bi bi-calendar"></i> {{ booking.showtime_date }}<br>
+                                                    <i class="bi bi-clock"></i> {{ booking.showtime_time }}<br>
+                                                    <i class="bi bi-chair"></i> Seats: {{ booking.seats }}
+                                                </small>
+                                            </p>
+                                            <p class="card-text">
+                                                <strong>Total Amount:</strong> €{{ booking.total_amount }}
+                                            </p>
+                                            <div class="mt-3">
+                                                <a href="{% url 'booking_confirmation' booking.id %}" class="btn btn-outline-primary btn-sm">
+                                                    <i class="bi bi-ticket-detailed"></i> View Ticket
+                                                </a>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                            {% endif %}
+                        {% endfor %}
+                    {% else %}
+                        <div class="text-center py-5">
+                            <i class="bi bi-ticket-perforated" style="font-size: 3rem; color: #6c757d;"></i>
+                            <p class="mt-3">No bookings yet</p>
+                            <a href="{% url 'movie_list' %}" class="btn btn-primary">Browse Movies</a>
+                        </div>
+                    {% endif %}
+                </div>
+
+                <!-- Favorites Tab -->
+                <div class="tab-pane fade" id="favorites">
+                    {% if favorite_movies %}
+                        <div class="row row-cols-1 row-cols-md-3 g-4">
+                            {% for movie in favorite_movies %}
+                                <div class="col">
+                                    <div class="card h-100">
+                                        <img src="{{ movie.poster_url }}" class="card-img-top" alt="{{ movie.title }}">
+                                        <div class="card-body">
+                                            <h5 class="card-title">{{ movie.title }}</h5>
+                                            <p class="card-text small">{{ movie.overview|truncatewords:20 }}</p>
+                                            <div class="d-flex justify-content-between align-items-center">
+                                                <a href="{% url 'movie_detail' movie.tmdb_id %}" class="btn btn-sm btn-outline-primary">View Details</a>
+                                                <button class="btn btn-sm btn-outline-danger favorite-btn" data-movie-id="{{ movie.tmdb_id }}">
+                                                    <i class="bi bi-heart-fill"></i>
+                                                </button>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                            {% endfor %}
+                        </div>
+                    {% else %}
+                        <div class="text-center py-5">
+                            <i class="bi bi-heart" style="font-size: 3rem; color: #6c757d;"></i>
+                            <p class="mt-3">No favorite movies yet</p>
+                            <a href="{% url 'movie_list' %}" class="btn btn-primary">Browse Movies</a>
+                        </div>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<style>
+    .nav-tabs .nav-link {
+        color: #495057;
+    }
+    .nav-tabs .nav-link.active {
+        color: #e50914;
+        border-bottom-color: #e50914;
+    }
+    .card-img-top {
+        height: 300px;
+        object-fit: cover;
+    }
+    .favorite-btn:hover {
+        color: #e50914;
+        border-color: #e50914;
+    }
+</style>
+
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    const csrfToken = document.querySelector('[name=csrfmiddlewaretoken]').value;
+
+    // Check if we need to show specific tab
+    const urlParams = new URLSearchParams(window.location.search);
+    const tabParam = urlParams.get('tab');
+    if (tabParam === 'favorites') {
+        document.querySelector('#favorites-tab').click();
+    } else if (tabParam === 'bookings') {
+        document.querySelector('#bookings-tab').click();
+    }
+
+    // Favorite buttons functionality
+    const favoriteButtons = document.querySelectorAll('.favorite-btn');
+    favoriteButtons.forEach(button => {
+        button.addEventListener('click', function() {
+            const movieId = this.dataset.movieId;
+            const icon = this.querySelector('i');
+            
+            fetch(`/movie/${movieId}/favorite/`, {
+                method: 'POST',
+                headers: {
+                    'X-CSRFToken': csrfToken,
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({})
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.success) {
+                    // Remove the movie card from favorites
+                    this.closest('.col').remove();
+                    
+                    // Check if there are any movies left
+                    const remainingMovies = document.querySelectorAll('#favorites .col');
+                    if (remainingMovies.length === 0) {
+                        const noFavorites = `
+                            <div class="text-center py-5">
+                                <i class="bi bi-heart" style="font-size: 3rem; color: #6c757d;"></i>
+                                <p class="mt-3">No favorite movies yet</p>
+                                <a href="{% url 'movie_list' %}" class="btn btn-primary">Browse Movies</a>
+                            </div>
+                        `;
+                        document.querySelector('#favorites').innerHTML = noFavorites;
+                    }
+                } else {
+                    alert('Failed to update favorite status: ' + (data.error || 'Unknown error'));
+                }
+            })
+            .catch(error => {
+                console.error('Error:', error);
+                alert('Failed to update favorite status. Please try again.');
+            });
+        });
+    });
+});
+</script>
+{% endblock %} 

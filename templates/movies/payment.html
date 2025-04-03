@@ -1,0 +1,156 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block content %}
+<div class="container mt-4">
+    <div class="row justify-content-center">
+        <div class="col-md-8">
+            <div class="card">
+                <div class="card-header">
+                    <h5 class="mb-0">Payment Details</h5>
+                </div>
+                <div class="card-body">
+                    <!-- Booking Summary -->
+                    <div class="booking-summary mb-4">
+                        <h6>Booking Summary</h6>
+                        <div class="row">
+                            <div class="col-md-6">
+                                <p><strong>Movie:</strong> {{ booking.movie.title }}</p>
+                                <p><strong>Date:</strong> {{ booking.showtime_date }}</p>
+                                <p><strong>Time:</strong> {{ booking.showtime_time }}</p>
+                            </div>
+                            <div class="col-md-6">
+                                <p><strong>Seats:</strong> {{ booking.seats }}</p>
+                                <p><strong>Price per Seat:</strong> €{{ booking.price_per_seat }}</p>
+                                <p><strong>Total Amount:</strong> €{{ booking.total_amount }}</p>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Payment Form -->
+                    <form id="payment-form">
+                        {% csrf_token %}
+                        <div class="mb-3">
+                            <label for="card-element" class="form-label">Credit or Debit Card</label>
+                            <div id="card-element" class="form-control"></div>
+                            <div id="card-errors" class="invalid-feedback d-block"></div>
+                        </div>
+                        <button id="submit-button" class="btn btn-primary">
+                            <span class="spinner-border spinner-border-sm d-none" role="status"></span>
+                            Pay €{{ booking.total_amount }}
+                        </button>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<style>
+    .StripeElement {
+        padding: 10px;
+        background-color: white;
+    }
+    .StripeElement--focus {
+        border-color: #80bdff;
+        outline: 0;
+        box-shadow: 0 0 0 0.2rem rgba(0,123,255,.25);
+    }
+    .StripeElement--invalid {
+        border-color: #dc3545;
+    }
+    .spinner-border {
+        margin-right: 8px;
+    }
+</style>
+
+<script src="https://js.stripe.com/v3/"></script>
+<script>
+    // Initialize Stripe with publishable key
+    const stripe = Stripe('{{ stripe_public_key }}');
+    const elements = stripe.elements();
+
+    // Create card Element and mount it
+    const cardElement = elements.create('card', {
+        style: {
+            base: {
+                fontSize: '16px',
+                color: '#32325d',
+                fontFamily: '"Helvetica Neue", Helvetica, sans-serif',
+                fontSmoothing: 'antialiased',
+                '::placeholder': {
+                    color: '#aab7c4'
+                }
+            },
+            invalid: {
+                color: '#fa755a',
+                iconColor: '#fa755a'
+            }
+        }
+    });
+    
+    cardElement.mount('#card-element');
+
+    // Handle form submission
+    const form = document.getElementById('payment-form');
+    const submitButton = document.getElementById('submit-button');
+    const spinner = submitButton.querySelector('.spinner-border');
+    const errorElement = document.getElementById('card-errors');
+
+    form.addEventListener('submit', async (event) => {
+        event.preventDefault();
+        submitButton.disabled = true;
+        spinner.classList.remove('d-none');
+        errorElement.textContent = '';
+
+        try {
+            const {paymentMethod, error} = await stripe.createPaymentMethod({
+                type: 'card',
+                card: cardElement,
+            });
+
+            if (error) {
+                handleError(error);
+            } else {
+                // Send payment method ID to server
+                const response = await fetch('{% url "process_payment" booking.id %}', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'X-CSRFToken': document.querySelector('[name=csrfmiddlewaretoken]').value,
+                    },
+                    body: JSON.stringify({
+                        payment_method_id: paymentMethod.id,
+                    }),
+                });
+
+                const result = await response.json();
+
+                if (result.success) {
+                    window.location.href = result.confirmation_url;
+                } else {
+                    handleError({message: result.error || 'Payment failed'});
+                }
+            }
+        } catch (error) {
+            handleError({message: 'An unexpected error occurred. Please try again.'});
+        }
+
+        submitButton.disabled = false;
+        spinner.classList.add('d-none');
+    });
+
+    function handleError(error) {
+        const errorElement = document.getElementById('card-errors');
+        errorElement.textContent = error.message;
+        errorElement.classList.add('text-danger');
+    }
+
+    // Handle real-time validation errors
+    cardElement.addEventListener('change', ({error}) => {
+        const errorElement = document.getElementById('card-errors');
+        errorElement.textContent = error ? error.message : '';
+        errorElement.classList.toggle('text-danger', error);
+    });
+</script>
+{% endblock %} 
